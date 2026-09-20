@@ -1,4 +1,4 @@
-"""Tkinter GUI for the YouTube downloader."""
+"""CustomTkinter GUI for the YouTube downloader (dark theme, see ui-design.md)."""
 
 from __future__ import annotations
 
@@ -6,9 +6,33 @@ import os
 import queue
 import threading
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
+
+import customtkinter as ctk
 
 from downloader import DownloaderError, FormatInfo, download, list_formats
+
+# ---------------------------------------------------------------- palette
+BG = "#0b0d10"
+BG_RAISED = "#111418"
+INK = "#f2f1ec"
+INK_DIM = "#9a9d9f"
+BORDER = "#20242a"
+ACCENT = "#ff4d4d"
+ACCENT_HOVER = "#e34343"
+ACCENT_INK = "#0b0d10"
+SUCCESS = "#28c840"
+ERROR = "#ff5f57"
+DISABLED_FG = "#3a2626"
+DISABLED_INK = "#6b6f71"
+MENU_DISABLED_INK = "#5c5f61"
+OUTLINE_HOVER = "#161a1f"
+
+FIELD_H = 36
+RADIUS = 8
+
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("dark-blue")
 
 
 def _default_output_dir() -> str:
@@ -34,12 +58,12 @@ def _fmt_eta(eta) -> str:
     return f"{eta // 60}m {eta % 60}s" if eta >= 60 else f"{eta}s"
 
 
-class DownloaderApp(tk.Tk):
+class DownloaderApp(ctk.CTk):
     def __init__(self) -> None:
-        super().__init__()
+        super().__init__(fg_color=BG)
         self.title("YouTube Downloader")
-        self.geometry("720x330")
-        self.minsize(640, 330)
+        self.geometry("760x460")
+        self.resizable(False, False)
 
         self.current_url: str = ""
         self.current_formats: list[FormatInfo] = []
@@ -47,62 +71,158 @@ class DownloaderApp(tk.Tk):
         self._queue: queue.Queue = queue.Queue()
         self._busy = False
 
+        self.font_brand = ctk.CTkFont(family="Segoe UI", size=15, weight="bold")
+        self.font_label = ctk.CTkFont(family="Segoe UI", size=12)
+        self.font_field = ctk.CTkFont(family="Segoe UI", size=13)
+        self.font_bold = ctk.CTkFont(family="Segoe UI", size=13, weight="bold")
+        self.font_mono = ctk.CTkFont(family="Consolas", size=12)
+
         self._build_widgets()
         self.after(100, self._poll_queue)
 
     # ---------------------------------------------------------------- layout
+    def _section_label(self, master, text: str) -> ctk.CTkLabel:
+        return ctk.CTkLabel(master, text=text, font=self.font_label,
+                            text_color=INK_DIM, anchor="w")
+
     def _build_widgets(self) -> None:
-        pad = {"padx": 8, "pady": 5}
-        self.columnconfigure(1, weight=1)
+        root = ctk.CTkFrame(self, fg_color=BG, corner_radius=0)
+        root.pack(fill="both", expand=True, padx=24, pady=24)
 
-        ttk.Label(self, text="Video URL:").grid(row=0, column=0, sticky="w", **pad)
+        # -- brand row -----------------------------------------------------
+        brand = ctk.CTkFrame(root, fg_color="transparent")
+        brand.pack(fill="x")
+        ctk.CTkLabel(brand, text="\u25cf", font=self.font_brand,
+                     text_color=ACCENT).pack(side="left")
+        ctk.CTkLabel(brand, text="YT Downloader", font=self.font_brand,
+                     text_color=INK).pack(side="left", padx=(8, 0))
+        ctk.CTkFrame(root, fg_color=BORDER, height=1,
+                     corner_radius=0).pack(fill="x", pady=(10, 14))
+
+        # -- URL block -----------------------------------------------------
+        self._section_label(root, "VIDEO URL").pack(fill="x", pady=(0, 6))
+        url_row = ctk.CTkFrame(root, fg_color="transparent")
+        url_row.pack(fill="x")
         self.url_var = tk.StringVar()
-        self.url_entry = ttk.Entry(self, textvariable=self.url_var)
-        self.url_entry.grid(row=0, column=1, sticky="ew", **pad)
-        self.fetch_btn = ttk.Button(self, text="Get info", command=self.on_fetch)
-        self.fetch_btn.grid(row=0, column=2, sticky="ew", **pad)
+        self.url_entry = ctk.CTkEntry(
+            url_row, textvariable=self.url_var, height=FIELD_H,
+            corner_radius=RADIUS, fg_color=BG_RAISED, border_color=BORDER,
+            border_width=1, text_color=INK, font=self.font_field,
+            placeholder_text="Paste a YouTube video URL\u2026",
+            placeholder_text_color=INK_DIM,
+        )
+        self.url_entry.pack(side="left", fill="x", expand=True)
+        self.url_entry.bind("<FocusIn>",
+                            lambda _e: self.url_entry.configure(border_color=ACCENT))
+        self.url_entry.bind("<FocusOut>",
+                            lambda _e: self.url_entry.configure(border_color=BORDER))
+        self.fetch_btn = ctk.CTkButton(
+            url_row, text="Get info", command=self.on_fetch, width=110,
+            height=FIELD_H, corner_radius=RADIUS, fg_color=ACCENT,
+            hover_color=ACCENT_HOVER, text_color=ACCENT_INK, font=self.font_bold,
+            text_color_disabled=DISABLED_INK,
+        )
+        self.fetch_btn.pack(side="left", padx=(10, 0))
 
+        # -- video title ---------------------------------------------------
         self.title_var = tk.StringVar(value="")
-        ttk.Label(self, textvariable=self.title_var, wraplength=650,
-                  foreground="#1a4d8f").grid(row=1, column=0, columnspan=3,
-                                             sticky="w", **pad)
+        ctk.CTkLabel(root, textvariable=self.title_var, font=self.font_bold,
+                     text_color=INK, wraplength=680, justify="left",
+                     anchor="w").pack(fill="x", pady=(16, 0))
 
-        ttk.Label(self, text="Quality:").grid(row=2, column=0, sticky="w", **pad)
-        self.format_combo = ttk.Combobox(self, state="disabled", values=[])
-        self.format_combo.grid(row=2, column=1, columnspan=2, sticky="ew", **pad)
+        # -- quality block --------------------------------------------------
+        self._section_label(root, "QUALITY").pack(fill="x", pady=(16, 6))
+        self.format_var = tk.StringVar(value="\u2014")
+        self.format_combo = ctk.CTkOptionMenu(
+            root, variable=self.format_var, values=["\u2014"], state="disabled",
+            height=FIELD_H, corner_radius=RADIUS, fg_color=BG_RAISED,
+            button_color=BG_RAISED, button_hover_color="#1a1e24",
+            text_color=INK, text_color_disabled=MENU_DISABLED_INK,
+            dropdown_fg_color=BG_RAISED, dropdown_text_color=INK,
+            dropdown_hover_color=BORDER, font=self.font_field,
+            dropdown_font=self.font_field, anchor="w",
+        )
+        self.format_combo.pack(fill="x")
 
-        ttk.Label(self, text="Save to:").grid(row=3, column=0, sticky="w", **pad)
+        # -- save-to block ---------------------------------------------------
+        self._section_label(root, "SAVE TO").pack(fill="x", pady=(16, 6))
+        dir_row = ctk.CTkFrame(root, fg_color="transparent")
+        dir_row.pack(fill="x")
         self.dir_var = tk.StringVar(value=self.output_dir)
-        ttk.Entry(self, textvariable=self.dir_var, state="readonly").grid(
-            row=3, column=1, sticky="ew", **pad)
-        ttk.Button(self, text="Browse…", command=self.on_browse).grid(
-            row=3, column=2, sticky="ew", **pad)
+        ctk.CTkEntry(
+            dir_row, textvariable=self.dir_var, state="readonly", height=FIELD_H,
+            corner_radius=RADIUS, fg_color=BG_RAISED, border_color=BORDER,
+            border_width=1, text_color=INK, font=self.font_field,
+        ).pack(side="left", fill="x", expand=True)
+        ctk.CTkButton(
+            dir_row, text="Browse\u2026", command=self.on_browse, width=110,
+            height=FIELD_H, corner_radius=RADIUS, fg_color="transparent",
+            border_width=1, border_color=BORDER, text_color=INK,
+            hover_color=OUTLINE_HOVER, font=self.font_field,
+        ).pack(side="left", padx=(10, 0))
 
-        self.progress = ttk.Progressbar(self, mode="determinate", maximum=100)
-        self.progress.grid(row=4, column=0, columnspan=3, sticky="ew", **pad)
+        # -- progress block ---------------------------------------------------
+        self.progress = ctk.CTkProgressBar(
+            root, height=6, corner_radius=4, mode="determinate",
+            fg_color=BORDER, progress_color=ACCENT,
+        )
+        self.progress.set(0)
+        self.progress.pack(fill="x", pady=(20, 8))
 
+        prog_row = ctk.CTkFrame(root, fg_color="transparent")
+        prog_row.pack(fill="x")
         self.progress_var = tk.StringVar(value="")
-        ttk.Label(self, textvariable=self.progress_var).grid(
-            row=5, column=0, columnspan=3, sticky="w", **pad)
+        self.eta_var = tk.StringVar(value="")
+        ctk.CTkLabel(prog_row, textvariable=self.progress_var, font=self.font_mono,
+                     text_color=INK_DIM, anchor="w").pack(side="left")
+        ctk.CTkLabel(prog_row, textvariable=self.eta_var, font=self.font_mono,
+                     text_color=INK_DIM, anchor="e").pack(side="right")
 
-        self.download_btn = ttk.Button(self, text="Download", state="disabled",
-                                       command=self.on_download)
-        self.download_btn.grid(row=6, column=1, sticky="e", **pad)
-
+        # -- status + download ------------------------------------------------
+        bottom = ctk.CTkFrame(root, fg_color="transparent")
+        bottom.pack(fill="x", side="bottom")
+        self.download_btn = ctk.CTkButton(
+            bottom, text="Download", command=self.on_download, state="disabled",
+            width=140, height=FIELD_H, corner_radius=RADIUS, fg_color=ACCENT,
+            hover_color=ACCENT_HOVER, text_color=ACCENT_INK, font=self.font_bold,
+            text_color_disabled=DISABLED_INK,
+        )
+        self.download_btn.pack(side="right", padx=(10, 0))
         self.status_var = tk.StringVar(value="Paste a YouTube URL and press "
                                              "\"Get info\".")
-        ttk.Label(self, textvariable=self.status_var, wraplength=680,
-                  foreground="#444").grid(row=7, column=0, columnspan=3,
-                                          sticky="w", **pad)
+        self.status_label = ctk.CTkLabel(
+            bottom, textvariable=self.status_var, font=self.font_label,
+            text_color=INK_DIM, wraplength=520, justify="left", anchor="w",
+        )
+        self.status_label.pack(side="left", fill="x", expand=True)
+
+        self._sync_button_styles()
 
     # --------------------------------------------------------------- helpers
+    def _status(self, text: str, color: str = INK_DIM) -> None:
+        self.status_var.set(text)
+        self.status_label.configure(text_color=color)
+
+    def _sync_button_styles(self) -> None:
+        """CTk's disabled dimming is inconsistent — set the fill explicitly."""
+        for btn in (self.fetch_btn, self.download_btn):
+            disabled = btn.cget("state") == "disabled"
+            btn.configure(fg_color=DISABLED_FG if disabled else ACCENT)
+
     def _set_busy(self, busy: bool) -> None:
         self._busy = busy
-        self.fetch_btn.config(state="disabled" if busy else "normal")
+        self.fetch_btn.configure(state="disabled" if busy else "normal")
         if busy:
-            self.download_btn.config(state="disabled")
+            self.download_btn.configure(state="disabled")
         elif self.current_formats:
-            self.download_btn.config(state="normal")
+            self.download_btn.configure(state="normal")
+        self._sync_button_styles()
+
+    def _selected_index(self) -> int:
+        try:
+            return self.format_combo.cget("values").index(self.format_var.get())
+        except ValueError:
+            return -1
 
     # ---------------------------------------------------------------- events
     def on_browse(self) -> None:
@@ -120,10 +240,10 @@ class DownloaderApp(tk.Tk):
             return
         self.current_url = url
         self._set_busy(True)
-        self.status_var.set("Fetching available formats…")
+        self._status("Fetching available formats\u2026")
         self.title_var.set("")
-        self.format_combo.config(values=[], state="disabled")
-        self.format_combo.set("")
+        self.format_combo.configure(values=["\u2014"], state="disabled")
+        self.format_var.set("\u2014")
         self.current_formats = []
         threading.Thread(target=self._fetch_worker, args=(url,),
                          daemon=True).start()
@@ -140,15 +260,16 @@ class DownloaderApp(tk.Tk):
     def on_download(self) -> None:
         if self._busy or not self.current_formats:
             return
-        idx = self.format_combo.current()
+        idx = self._selected_index()
         if idx < 0:
             messagebox.showerror("Error", "Please choose a quality.")
             return
         fmt = self.current_formats[idx]
         self._set_busy(True)
-        self.progress.config(value=0)
+        self.progress.set(0)
         self.progress_var.set("")
-        self.status_var.set(f"Downloading: {fmt.note}")
+        self.eta_var.set("")
+        self._status(f"Downloading: {fmt.note}")
         threading.Thread(
             target=self._download_worker,
             args=(self.current_url, fmt.format_id, self.output_dir),
@@ -183,24 +304,26 @@ class DownloaderApp(tk.Tk):
             title, formats = payload
             self.current_formats = formats
             self.title_var.set(title)
-            self.format_combo.config(values=[f.note for f in formats],
-                                     state="readonly")
-            self.format_combo.current(0)
-            self.status_var.set(f"{len(formats)} options available. "
-                                "Pick a quality and press Download.")
+            notes = [f.note for f in formats] or ["\u2014"]
+            self.format_combo.configure(values=notes, state="normal")
+            self.format_var.set(notes[0])
+            self._status(f"{len(formats)} options available. "
+                         "Pick a quality and press Download.")
             self._set_busy(False)
         elif kind == "progress":
             self._handle_progress(payload)
         elif kind == "done":
-            self.progress.config(value=100)
+            self.progress.set(1)
             self.progress_var.set("")
-            self.status_var.set(f"Saved to: {payload}")
+            self.eta_var.set("")
+            self._status(f"Saved to: {payload}", SUCCESS)
             self._set_busy(False)
             messagebox.showinfo("Done", f"Download complete:\n{payload}")
         elif kind == "error":
-            self.progress.config(value=0)
+            self.progress.set(0)
             self.progress_var.set("")
-            self.status_var.set("Error — see dialog.")
+            self.eta_var.set("")
+            self._status("Error — see dialog.", ERROR)
             self._set_busy(False)
             messagebox.showerror("Error", payload)
 
@@ -209,11 +332,10 @@ class DownloaderApp(tk.Tk):
             total = d.get("total_bytes") or 0
             done = d.get("downloaded_bytes") or 0
             pct = (done / total * 100) if total else 0
-            self.progress.config(value=pct)
-            self.progress_var.set(
-                f"{pct:5.1f}%   {_fmt_speed(d.get('speed'))}   "
-                f"ETA {_fmt_eta(d.get('eta'))}"
-            )
+            self.progress.set(pct / 100)
+            self.progress_var.set(f"{pct:5.1f}%   {_fmt_speed(d.get('speed'))}")
+            self.eta_var.set(f"ETA {_fmt_eta(d.get('eta'))}")
         elif d.get("status") == "finished":
-            self.progress.config(value=100)
-            self.progress_var.set("Merging / finalizing…")
+            self.progress.set(1)
+            self.progress_var.set("Merging / finalizing\u2026")
+            self.eta_var.set("")

@@ -1,12 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
 # PyInstaller spec: build with `pyinstaller build.spec`
 
+from PyInstaller.utils.hooks import collect_data_files
+
+# CustomTkinter ships its theme JSON + assets as package data; they must be
+# bundled or the frozen app crashes on import.
+ctk_datas = collect_data_files('customtkinter')
+
 a = Analysis(
     ['src/main.py'],
     pathex=['src'],
     binaries=[],
-    datas=[],
-    hiddenimports=['gui', 'downloader'],
+    datas=ctk_datas,
+    hiddenimports=['gui', 'downloader', 'customtkinter'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
