@@ -1,0 +1,31 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# PyInstaller
+build/
+dist/
+*.manifest
+!build.spec
+
+# Downloaded media / test output
+*.mp4
+*.webm
+*.m4a
+*.part
+*.ytdl
+
+# Bundled binary (user-supplied)
+ffmpeg.exe
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
