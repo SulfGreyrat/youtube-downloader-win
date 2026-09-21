@@ -116,6 +116,14 @@ class DownloaderApp(ctk.CTk):
                             lambda _e: self.url_entry.configure(border_color=ACCENT))
         self.url_entry.bind("<FocusOut>",
                             lambda _e: self.url_entry.configure(border_color=BORDER))
+        self._install_paste_bindings()
+        self.paste_btn = ctk.CTkButton(
+            url_row, text="Paste", command=self.on_paste, width=86,
+            height=FIELD_H, corner_radius=RADIUS, fg_color="transparent",
+            border_width=1, border_color=BORDER, text_color=INK,
+            hover_color=OUTLINE_HOVER, font=self.font_field,
+        )
+        self.paste_btn.pack(side="left", padx=(10, 0))
         self.fetch_btn = ctk.CTkButton(
             url_row, text="Get info", command=self.on_fetch, width=110,
             height=FIELD_H, corner_radius=RADIUS, fg_color=ACCENT,
@@ -199,6 +207,77 @@ class DownloaderApp(ctk.CTk):
         self._sync_button_styles()
 
     # --------------------------------------------------------------- helpers
+    # Keycode of the physical "V" key on Windows (VK_V). Tk reports this in
+    # event.keycode regardless of the active keyboard layout, whereas
+    # event.keysym becomes e.g. Cyrillic_em under a Russian layout — which is
+    # why the stock "<Control-v>" class binding silently never fires there.
+    _VK_V = 86
+
+    def _install_paste_bindings(self) -> None:
+        """Make paste work via Ctrl+V (any layout), right-click and Shift+Ins."""
+        inner = self.url_entry._entry  # underlying tkinter.Entry
+
+        # Layout-independent Ctrl+V: match on physical keycode, not keysym.
+        def _on_ctrl_key(event):
+            if event.keycode == self._VK_V:
+                self.on_paste()
+                return "break"
+            return None
+
+        for widget in (inner, self):
+            widget.bind("<Control-KeyPress>", _on_ctrl_key, add=True)
+
+        # Route Tk's own paste event through the same handler so the text
+        # always lands in url_var, whatever generated the event.
+        inner.bind("<<Paste>>", lambda _e: (self.on_paste(), "break")[1], add=True)
+        inner.bind("<Shift-Insert>", lambda _e: (self.on_paste(), "break")[1],
+                   add=True)
+
+        # Right-click context menu.
+        self._url_menu = tk.Menu(
+            self, tearoff=0, bg=BG_RAISED, fg=INK,
+            activebackground=BORDER, activeforeground=INK,
+            bd=0, relief="flat",
+        )
+        self._url_menu.add_command(label="Paste", command=self.on_paste)
+        self._url_menu.add_command(label="Copy", command=self.on_copy)
+        self._url_menu.add_command(label="Clear", command=self.on_clear)
+        inner.bind("<Button-3>", self._show_url_menu, add=True)
+
+    def _show_url_menu(self, event) -> str:
+        self.url_entry.focus_set()
+        try:
+            self._url_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self._url_menu.grab_release()
+        return "break"
+
+    def _clipboard_text(self) -> str:
+        try:
+            return self.clipboard_get()
+        except tk.TclError:
+            return ""
+
+    def on_paste(self) -> None:
+        text = " ".join(self._clipboard_text().split())
+        if not text:
+            self._status("Clipboard is empty — copy a YouTube URL first.", ERROR)
+            return
+        self.url_var.set(text)
+        self.url_entry.focus_set()
+        self.url_entry.icursor("end")
+        self._status("URL pasted. Press \"Get info\".")
+
+    def on_copy(self) -> None:
+        text = self.url_var.get().strip()
+        if text:
+            self.clipboard_clear()
+            self.clipboard_append(text)
+
+    def on_clear(self) -> None:
+        self.url_var.set("")
+        self.url_entry.focus_set()
+
     def _status(self, text: str, color: str = INK_DIM) -> None:
         self.status_var.set(text)
         self.status_label.configure(text_color=color)
