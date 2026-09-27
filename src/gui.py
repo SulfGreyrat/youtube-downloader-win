@@ -10,6 +10,7 @@ from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 
+import config as appconfig
 from downloader import DownloaderError, FormatInfo, download, list_formats
 
 # ---------------------------------------------------------------- palette
@@ -33,11 +34,6 @@ RADIUS = 8
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
-
-
-def _default_output_dir() -> str:
-    downloads = os.path.join(os.path.expanduser("~"), "Downloads")
-    return downloads if os.path.isdir(downloads) else os.path.expanduser("~")
 
 
 def _fmt_speed(speed) -> str:
@@ -67,7 +63,7 @@ class DownloaderApp(ctk.CTk):
 
         self.current_url: str = ""
         self.current_formats: list[FormatInfo] = []
-        self.output_dir: str = _default_output_dir()
+        self.output_dir: str = appconfig.get_output_dir()
         self._queue: queue.Queue = queue.Queue()
         self._busy = False
 
@@ -309,6 +305,7 @@ class DownloaderApp(ctk.CTk):
         if chosen:
             self.output_dir = chosen
             self.dir_var.set(chosen)
+            appconfig.set_output_dir(chosen)
 
     def on_fetch(self) -> None:
         if self._busy:

@@ -1,18 +1,13 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec: build with `pyinstaller build.spec`
-
-from PyInstaller.utils.hooks import collect_data_files
-
-# CustomTkinter ships its theme JSON + assets as package data; they must be
-# bundled or the frozen app crashes on import.
-ctk_datas = collect_data_files('customtkinter')
+# PyInstaller spec for the background download agent (no window, no console).
+# Build with: pyinstaller server.spec
 
 a = Analysis(
-    ['src/main.py'],
+    ['src/server_agent.py'],
     pathex=['src'],
     binaries=[],
-    datas=ctk_datas,
-    hiddenimports=['gui', 'downloader', 'customtkinter', 'config'],
+    datas=[],
+    hiddenimports=['config', 'downloader'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -28,7 +23,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='YouTubeDownloader',
+    name='YouTubeDownloaderAgent',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
