@@ -30,13 +30,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import config as appconfig  # noqa: E402
-from downloader import BEST_FORMAT_ID, DownloaderError, download  # noqa: E402
+from downloader import Cancelled, DownloaderError, download  # noqa: E402
 
 HOST = "127.0.0.1"
 PORT = 8756
 
 _jobs: dict[str, dict] = {}
 _jobs_lock = threading.Lock()
+# one download at a time from the extension, so parallel clicks don't
+# saturate the link; the rest wait with status "queued"
+_slot = threading.Semaphore(1)
 
 
 def _set_job(job_id: str, **fields) -> None:
@@ -46,24 +49,36 @@ def _set_job(job_id: str, **fields) -> None:
 
 def _run_download(job_id: str, url: str) -> None:
     out_dir = appconfig.get_output_dir()
+    quality = appconfig.get("quality") or "best"
+    _slot.acquire()
     _set_job(job_id, status="downloading", pct=0, error=None)
 
     def on_progress(d: dict) -> None:
-        if d.get("status") == "downloading":
+        st = d.get("status")
+        if st == "info":
+            _set_job(job_id, title=d.get("title"), duration=d.get("duration"),
+                     total_bytes=d.get("total_bytes"))
+        elif st == "downloading":
             total = d.get("total_bytes") or 0
             done = d.get("downloaded_bytes") or 0
             pct = round((done / total * 100), 1) if total else None
-            _set_job(job_id, pct=pct)
-        elif d.get("status") == "finished":
+            _set_job(job_id, status="downloading", pct=pct, downloaded_bytes=done,
+                     total_bytes=total, speed=d.get("speed"))
+        elif st == "merging":
             _set_job(job_id, status="merging")
 
     try:
-        path = download(url, BEST_FORMAT_ID, out_dir, progress_callback=on_progress)
+        path = download(url, quality, out_dir, progress_callback=on_progress,
+                        source="extension")
         _set_job(job_id, status="done", path=path, pct=100)
+    except Cancelled:
+        _set_job(job_id, status="error", error="Отменено")
     except DownloaderError as exc:
         _set_job(job_id, status="error", error=str(exc))
     except Exception as exc:  # noqa: BLE001
         _set_job(job_id, status="error", error=f"Unexpected error: {exc}")
+    finally:
+        _slot.release()
 
 
 class Handler(BaseHTTPRequestHandler):

@@ -1,18 +1,25 @@
 # -*- mode: python ; coding: utf-8 -*-
 # PyInstaller spec: build with `pyinstaller build.spec`
 
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_all, collect_data_files
 
-# CustomTkinter ships its theme JSON + assets as package data; they must be
-# bundled or the frozen app crashes on import.
-ctk_datas = collect_data_files('customtkinter')
+# CustomTkinter ships its theme JSON + assets as package data; yt-dlp-ejs ships
+# the JS challenge solver YouTube needs for 1080p+ formats.
+datas = collect_data_files('customtkinter') + [('assets', 'assets')]
+binaries, hidden = [], []
+for pkg in ('yt_dlp', 'yt_dlp_ejs'):
+    d, b, h = collect_all(pkg)
+    datas += d
+    binaries += b
+    hidden += h
 
 a = Analysis(
     ['src/main.py'],
     pathex=['src'],
-    binaries=[],
-    datas=ctk_datas,
-    hiddenimports=['gui', 'downloader', 'customtkinter', 'config'],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=['gui', 'downloader', 'customtkinter', 'config', 'stats',
+                   'queue_manager'] + hidden,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -29,11 +36,12 @@ exe = EXE(
     a.datas,
     [],
     name='YouTubeDownloader',
+    icon='assets/icon.ico',
+    version=None,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
-    upx_exclude=[],
+    upx=False,
     runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,

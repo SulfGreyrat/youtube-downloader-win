@@ -2,16 +2,25 @@
 # PyInstaller spec for the background download agent (no window, no console).
 # Build with: pyinstaller server.spec
 
+from PyInstaller.utils.hooks import collect_all
+
+datas, binaries, hidden = [], [], []
+for pkg in ('yt_dlp', 'yt_dlp_ejs'):
+    d, b, h = collect_all(pkg)
+    datas += d
+    binaries += b
+    hidden += h
+
 a = Analysis(
     ['src/server_agent.py'],
     pathex=['src'],
-    binaries=[],
-    datas=[],
-    hiddenimports=['config', 'downloader'],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=['config', 'downloader', 'stats'] + hidden,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['tkinter', 'customtkinter', 'PIL'],
     noarchive=False,
 )
 
@@ -24,11 +33,11 @@ exe = EXE(
     a.datas,
     [],
     name='YouTubeDownloaderAgent',
+    icon='assets/icon.ico',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
-    upx_exclude=[],
+    upx=False,
     runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,

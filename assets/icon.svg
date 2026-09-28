@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- YT Downloader app icon. Geometry mirrors assets/icon.ico generation logic in ui-design-v2.md §5.
+     256x256 viewBox. Background: rounded square, accent #ff4d4d, inset 0.06*S, radius 0.18*S.
+     Arrow: single solid polygon, ink #f2f1ec, per fractional points in ui-design-v2.md §5.2. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect x="15.36" y="15.36" width="225.28" height="225.28" rx="46.08" ry="46.08" fill="#ff4d4d"/>
+  <polygon fill="#f2f1ec" points="
+    107.52,71.68
+    148.48,71.68
+    148.48,143.36
+    174.08,143.36
+    128.00,189.44
+    81.92,143.36
+    107.52,143.36
+  "/>
+</svg>
