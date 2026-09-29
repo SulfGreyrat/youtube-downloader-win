@@ -1,66 +1,63 @@
-# YouTube Downloader for Windows
+# YT Downloader для Windows (v2)
 
-A small desktop app (Python + tkinter + yt-dlp) that downloads a YouTube video
-in **any** available quality, including 1440p/4K video-only streams which are
-merged with the best audio track into a single MP4 via ffmpeg.
+Десктоп-приложение (Python + customtkinter + yt-dlp) для скачивания видео с YouTube
+в любом качестве (до 4K), с очередью и статистикой.
 
-## Features
+## Возможности
 
-- Paste a URL, press **Get info** → full list of available formats/qualities.
-- Synthetic **"Best available (auto, video+audio merged)"** option at the top.
-- Choose the output folder (defaults to `~/Downloads`).
-- Progress bar with percentage, speed and ETA; UI stays responsive
-  (download runs in a worker thread).
-- Clear errors for invalid URLs, private/region-locked videos, missing ffmpeg
-  and unwritable output folders.
+- **Правильные имена файлов**: сохраняется оригинальное название видео (кириллица,
+  пробелы, эмодзи); символы, запрещённые в Windows (`| : ? " * < > /`), заменяются
+  на похожие Unicode-символы. Длинные названия обрезаются до 180 байт.
+- **Скачать**: вставьте одну ссылку, несколько (каждую с новой строки) или плейлист.
+  «Получить инфо» показывает превью, канал, **длительность** и **вес для каждого
+  качества** (видео + звук суммарно), а также свободное место на диске.
+  Ссылка из буфера подставляется сама, когда вы возвращаетесь в окно; Ctrl+V
+  работает на любой раскладке.
+- **Очередь**: фоновое скачивание, 1–4 параллельно, пауза, отмена, повтор, порядок
+  ↑/↓. Карточка показывает статус, общий прогресс (видео + аудио вместе), скачано /
+  всего, скорость и ETA. Сверху сводка: сколько видео, общий вес, общая длительность,
+  скорость и сколько осталось. Очередь сохраняется между запусками: недокачанное
+  продолжается с того же места. Прогресс виден в заголовке окна.
+- **Статистика** (`%APPDATA%\YouTubeDownloader\history.db`): сколько видео, ГБ и часов
+  скачано за сегодня / 7 / 30 дней / всё время, среднее за день, график по дням
+  (объём / видео / время, с подсказкой при наведении), топ каналов, история с поиском.
+  Двойной клик открывает файл, правый клик показывает меню. Загрузки из
+  Chrome-расширения тоже учитываются.
+- **Иконка**: у exe, окна, панели задач и ярлыков (рабочий стол + меню «Пуск»).
+  Запускается только одна копия; при повторном запуске разворачивается уже открытое окно.
 
-## Requirements
+## Требования
 
-- Python 3.10+ (Windows builds include `tkinter` out of the box)
-- `yt-dlp` (see `requirements.txt`)
-- **ffmpeg** — only needed when merging separate video+audio streams, i.e. for
-  anything above ~720p. Two options:
-  - `winget install Gyan.FFmpeg` and restart your terminal/app, or
-  - drop `ffmpeg.exe` next to `YouTubeDownloader.exe` (or next to `src/`).
+- **ffmpeg** — склейка видео и звука: `winget install Gyan.FFmpeg`
+- **Node.js** — YouTube отдаёт форматы 1080p+ только после JS-проверки; yt-dlp
+  использует node автоматически (ищется в PATH и в `C:\Program Files\nodejs`).
 
-## Run from source
+## Запуск из исходников / сборка
 
 ```
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python src/main.py
+.buildenv\Scripts\python.exe src\main.py          # запуск
+.buildenv\Scripts\python.exe tools\make_icon.py   # перегенерировать иконку
+.buildenv\Scripts\pyinstaller.exe build.spec --noconfirm    # dist\YouTubeDownloader.exe
+.buildenv\Scripts\pyinstaller.exe server.spec --noconfirm   # dist\YouTubeDownloaderAgent.exe
+powershell -ExecutionPolicy Bypass -File make_shortcut.ps1   # ярлыки
 ```
 
-## Build a standalone .exe
+Перед сборкой закройте запущенные exe, иначе файлы будут заблокированы.
+
+## Тесты
 
 ```
-pip install -r requirements.txt pyinstaller
-pyinstaller build.spec
+.buildenv\Scripts\python.exe tests\smoke_core.py   # реальные загрузки, имена, отмена, очередь, статистика
+.buildenv\Scripts\python.exe tests\smoke_gui.py    # запуск GUI и скриншоты вкладок в %TEMP%\ytdl_test\shots
 ```
 
-Result: `dist/YouTubeDownloader.exe` — a single-file, windowed (no console)
-executable. It does **not** bundle ffmpeg; ship `ffmpeg.exe` alongside it or
-tell users to install it (see above).
+Оба теста работают в изолированном `%TEMP%\ytdl_test` и не трогают вашу историю.
 
-## Usage
+## Если перестало качать
 
-1. Paste the video URL.
-2. Press **Get info** — the title appears and the quality dropdown fills up.
-   Entries marked *(video only, will be merged with audio)* require ffmpeg.
-3. Pick the output folder with **Browse…**.
-4. Press **Download**. The progress bar shows percentage, speed and ETA; when
-   finished, the final file path is shown in the status line.
+YouTube регулярно ломает старые версии yt-dlp:
+`.buildenv\Scripts\python.exe -m pip install -U "yt-dlp[default]"`, затем пересоберите exe.
 
-## Notes / limitations
+## Лицензия
 
-- Playlists are not supported (`noplaylist` is forced — only the single video).
-- No subtitles, no download queue, no auto-update.
-- YouTube changes break older yt-dlp versions. If downloads start failing,
-  run `pip install -U yt-dlp` (and rebuild the exe).
-- On minimal Linux Python installs `tkinter` needs a system package
-  (`python3-tk`); irrelevant on Windows.
-
-## License
-
-MIT — see `LICENSE`.
+MIT — см. `LICENSE`.
